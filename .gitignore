@@ -1,0 +1,9 @@
+out/*
+build/*
+.vs/*
+*.pyc
+*.swp
+plugin/Debug
+plugin/Release
+*.dll
+

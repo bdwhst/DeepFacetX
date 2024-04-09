@@ -1,0 +1,51 @@
+[node AsymMicrofacetConductorNode]
+	maya.name				STRING	"asymConductor"
+	maya.id					INT		0x00070000
+	maya.classification		STRING	"shader/surface"
+	maya.output_name		STRING	"outColor"
+	maya.output_shortname	STRING	"out"
+
+    [attr boundary_depth]
+		desc				STRING	"Boundary of the two layers"
+		min					FLOAT	-12.8
+		max					FLOAT	0.0
+		default				FLOAT	-0.5
+		maya.name			STRING	"boundary_depth"
+		maya.shortname		STRING	"bound_depth"
+
+    [attr alpha_x_a]
+		desc				STRING	"Roughness X A"
+		min					FLOAT	0.0001
+		max					FLOAT	3.0
+		default				FLOAT	0.8
+		maya.name			STRING	"alpha_x_a"
+		maya.shortname		STRING	"alphaxa"
+
+    [attr alpha_y_a]
+		desc				STRING	"Roughness Y A"
+		min					FLOAT	0.0001
+		max					FLOAT	3.0
+		default				FLOAT	0.8
+		maya.name			STRING	"alpha_y_a"
+		maya.shortname		STRING	"alphaya"
+    
+    [attr alpha_x_b]
+		desc				STRING	"Roughness X B"
+		min					FLOAT	0.0001
+		max					FLOAT	3.0
+		default				FLOAT	0.1
+		maya.name			STRING	"alpha_x_b"
+		maya.shortname		STRING	"alphaxb"
+
+    [attr alpha_y_b]
+		desc				STRING	"Roughness Y B"
+		min					FLOAT	0.0001
+		max					FLOAT	3.0
+		default				FLOAT	0.1
+		maya.name			STRING	"alpha_y_b"
+		maya.shortname		STRING	"alphayb"
+
+	[attr albedo]
+		desc				STRING	"Albedo"
+		maya.name			STRING	"albedo"
+		maya.shortname		STRING	"a"
