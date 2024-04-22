@@ -6,6 +6,7 @@
 
 const char NodeParamTypeName[] = "type_name";
 const char ConductorNodeName[] = "AsymMicrofacetConductorNode";
+const char DielectricNodeName[] = "AsymMicrofacetDielectricNode";
 
 template<typename T>
 T* GetNodeLocalDataPtr(const AtNode* node)

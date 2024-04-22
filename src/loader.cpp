@@ -17,6 +17,7 @@
 	}
 
 DECL_METHOD(ConductorNodeMtd, 0);
+DECL_METHOD(DielectricNodeMtd, 1);
 
 //node_loader
 node_loader
@@ -24,6 +25,7 @@ node_loader
 	switch (i)
 	{
 	DECL_CASE(ConductorNodeMtd, ConductorNodeName);
+	DECL_CASE(DielectricNodeMtd, DielectricNodeName);
 
 	default:
 		return false;

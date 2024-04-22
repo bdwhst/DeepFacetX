@@ -7,8 +7,9 @@
 #include "randomUtils.h"
 #include <variant>
 
-struct AsymMicrofacetBSDF;
-using BSDF = std::variant<AsymMicrofacetBSDF>;
+struct AsymConductorBSDF;
+struct AsymDielectricBSDF;
+using BSDF = std::variant<AsymConductorBSDF, AsymDielectricBSDF>;
 
 struct BSDFSample
 {
@@ -71,8 +72,8 @@ struct BSDFState
 	static inline uint32_t HashShaderGlobals(const AtShaderGlobals* sg)
 	{
 		uint32_t seed = (sg->x << 16) ^ sg->y ^ 0xac47d932;
-		seed ^= (sg->tid << 16) ^ sg->bounces ^ 0x56f904a9;
-		seed ^= (floatBitsToInt(sg->py) << 16) ^ floatBitsToInt(sg->px) ^ 0x38b0247a;
+		seed ^= ((sg->tid << 16) ^ 0x56f904a9) * sg->bounces;
+		seed ^= (floatBitsToInt(sg->py) << 16) ^ (floatBitsToInt(sg->px) ^ 0x38b0247a) * sg->si;
 
 		return seed;
 	}
@@ -93,26 +94,30 @@ struct BSDFState
 
 
 typedef vec3(*phaseEvalFunc)(const vec3&, const vec3&, float, float, const vec3&);
-typedef vec3(*phaseSampleFunc)(const vec3&, const vec3&, vec3&, float, float, vec3);
+typedef vec3(*phaseSampleFunc)(const vec3&, const vec3&, vec3&, float, float, vec3, bool, bool&);
+
+enum asymMicrofacetType {
+	conductor, dielectric
+};
 
 struct asymMicrofacetInfo
 {
+	asymMicrofacetType type;
     float zs;
+	float ior;
     float alphaXA, alphaYA;
     float alphaXB, alphaYB;
     vec3 albedo;
-    phaseEvalFunc fEval;
-    phaseSampleFunc fSample;
 };
 
+constexpr int scattering_order = 4;
 
-struct AsymMicrofacetBSDF
+struct AsymConductorBSDF
 {
-	AtRGB F(vec3 wo, vec3 wi, RandomEngine& rng, int order = 4) const;
+	AtRGB F(vec3 wo, vec3 wi, RandomEngine& rng, int order = scattering_order) const;
 	float PDF(vec3 wo, vec3 wi) const;
-	BSDFSample Sample(vec3 wo, RandomEngine& rng, int order = 4) const;
+	BSDFSample Sample(vec3 wo, RandomEngine& rng, int order = scattering_order) const;
 	bool IsDelta() const { return ApproxDelta(); }
-	bool HasTransmit() const { return true; }
 	bool ApproxDelta() const {
 		return mat.alphaXA < deltaThreshold && mat.alphaYA < deltaThreshold;
 	}
@@ -122,6 +127,21 @@ struct AsymMicrofacetBSDF
 	float deltaThreshold = 1e-4f;
 };
 
+
+struct AsymDielectricBSDF
+{
+	AtRGB F(vec3 wo, vec3 wi, RandomEngine& rng, int order = scattering_order) const;
+	float PDF(vec3 wo, vec3 wi) const;
+	BSDFSample Sample(vec3 wo, RandomEngine& rng, int order = scattering_order) const;
+	bool IsDelta() const { return ApproxDelta(); }
+	bool ApproxDelta() const {
+		return mat.alphaXA < deltaThreshold && mat.alphaYA < deltaThreshold;
+	}
+
+	asymMicrofacetInfo mat;
+	bool SchlickFresnel = false;
+	float deltaThreshold = 1e-4f;
+};
 
 
 template<typename BSDFT>
