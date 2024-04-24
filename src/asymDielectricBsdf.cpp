@@ -18,7 +18,6 @@ bsdf_init
 	};
 
 	AiBSDFInitLobes(bsdf, lobe_info, 4);
-	AiBSDFInitNormal(bsdf, fs->state.nf, false);
 }
 
 bsdf_sample
@@ -32,7 +31,7 @@ bsdf_sample
 		return AI_BSDF_LOBE_MASK_NONE;
 	int isTransmission = sameHemisphere(state.wo, sample.wi) ? 0 : 2;
     float pdf = fs->bsdf.PDF(state.wo, sample.wi);
-	out_wi = AtVectorDv(toWorld(state.nf, sample.wi));
+	out_wi = AtVectorDv(toWorld(state.n, sample.wi));
 	out_lobe_index = (IsDeltaRay(sample.type) ? 0 : 1) | (isTransmission ? 2 : 0);
 	//out_lobe_index = (0) | (isTransmission ? 2 : 0);
 	out_lobes[out_lobe_index] = AtBSDFLobeSample(sample.f, 1.0f, pdf);
@@ -45,7 +44,7 @@ bsdf_eval
 	auto fs = GetAtBSDFCustomDataPtr<WithState<AsymDielectricBSDF>>(bsdf);
 	auto& state = fs->state;
 	RandomEngine rng(state.seed ^ floatBitsToInt(wi.x));
-	vec3 wiLocal = toLocal(state.nf, wi);
+	vec3 wiLocal = toLocal(state.n, wi);
 
 	AtRGB f = fs->bsdf.F(state.wo, wiLocal, rng);
 	float pdf = fs->bsdf.PDF(state.wo, wiLocal);
@@ -55,7 +54,7 @@ bsdf_eval
 	int isTransmission = sameHemisphere(state.wo, wiLocal) ? 0 : 2;
 	int lobe = (fs->bsdf.IsDelta() ? 0 : 1) | (isTransmission ? 2 : 0);
 	//int lobe = (0) | (isTransmission ? 2 : 0);
-	out_lobes[lobe] = AtBSDFLobeSample(f, pdf, pdf);
+	out_lobes[lobe] = AtBSDFLobeSample(f, 1.0f, pdf);
 	return lobe_mask & LobeMask(lobe);
 }
 

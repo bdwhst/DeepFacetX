@@ -55,7 +55,7 @@ inline vec3 cross(vec3 a, vec3 b)
 	return AiV3Cross(a, b);
 }
 
-inline float dot(vec3 a, vec3 b)
+inline float dot(const vec3& a, const vec3& b)
 {
 	return AiV3Dot(a, b);
 }
@@ -119,6 +119,11 @@ inline float pow5(float x)
 {
 	float x2 = x * x;
 	return x2 * x2 * x;
+}
+
+inline vec3 faceForward(const vec3& n, const vec3& v)
+{
+	return (dot(n, v) < 0.0f) ? -n : n;
 }
 
 

@@ -30,7 +30,7 @@ node_parameters
 node_initialize
 {
 	auto bsdf = new BSDF;
-	*bsdf = AsymConductorBSDF();
+	*bsdf = AsymDielectricBSDF();
 	AiNodeSetLocalData(node, bsdf);
 }
 

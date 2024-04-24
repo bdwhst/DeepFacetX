@@ -107,8 +107,6 @@ AtRGB AsymDielectricBSDF::F(vec3 wo, vec3 wi, RandomEngine& rng, int order) cons
     {
         w = -w;
     }
-    //flip wi if it is pointing DOWN
-    vec3 wi_f = wi.z > 0 ? wi : -wi;
     while (i < order)
     {
         float U = Sample1D(rng);
@@ -127,11 +125,28 @@ AtRGB AsymDielectricBSDF::F(vec3 wo, vec3 wi, RandomEngine& rng, int order) cons
         //use unflipped w's negative as input to eval
         vec3 wo_unflipped = flipped ? w : -w;
         vec3 p = z > zs ? util_dielectric_evalPhaseFunction(wo_unflipped, wi, alphaXA, alphaYA, mat.albedo, outside, wi.z > 0, eta) : util_dielectric_evalPhaseFunction(wo_unflipped, wi, alphaXB, alphaYB, mat.albedo, outside, wi.z > 0, eta);
-        
-        
-        float lambdaA = util_GGX_lambda(wi_f, alphaXA, alphaYA);
-        float lambdaB = util_GGX_lambda(wi_f, alphaXB, alphaYB);
-        float tau_exit = max(z, zs) * lambdaA + min(z - zs, 0.0f) * lambdaB;
+        float tau_exit, lambdaA, lambdaB, z_t = z, zs_t = zs;
+        if (wi.z<0)
+        {
+            lambdaA = util_GGX_lambda(-wi, alphaXA, alphaYA);
+            lambdaB = util_GGX_lambda(-wi, alphaXB, alphaYB);
+            if (!flipped)
+            {
+                z_t = util_flip_z(z_t);
+                zs_t = util_flip_z(zs_t);
+            }      
+        }
+        else
+        {
+            lambdaA = util_GGX_lambda(wi, alphaXA, alphaYA);
+            lambdaB = util_GGX_lambda(wi, alphaXB, alphaYB);
+            if (flipped)
+            {
+                z_t = util_flip_z(z_t);
+                zs_t = util_flip_z(zs_t);
+            }
+        }
+        tau_exit = max(z_t, zs_t) * lambdaA + min(z_t - zs_t, 0.0f) * lambdaB;
         result += throughput * exp(tau_exit) * p;
 
         vec3 rand3 = Sample3D(rng);
@@ -168,28 +183,29 @@ float AsymDielectricBSDF::PDF(vec3 wo, vec3 wi) const
     if (!reflect)
         etap = cos_wo > 0 ? mat.ior : (1 / mat.ior);
     vec3 wm = wi * etap + wo;
-    if (isSmall(wo) || isSmall(wi) || isSmall(wm)) return 0.0;
-    wm = normalize(wm);
-    if (dot(wm, wi) < 0 || dot(wm, wo) < 0) return 0.0;
-    float R = util_fresnel(wi, wm, etap);
+    if (abs(cos_wo) < 1e-6 || abs(cos_wi) < 1e-6 || isSmall(wm)) return 0.0;
+    //if (dot(wm, wi) * cos_wi < 0 || dot(wm, wo) * cos_wo < 0) return 0.0;
+    float R = util_fresnel(wo, faceForward(normalize(wm), wo), etap);
     float T = 1 - R;
     float pdf = 0.0;
+
     if (reflect)
     {
-        wo *= util_sgn(wo.z);
-        wm *= util_sgn(wm.z);
-        pdf = util_Dwi(wo, wm, mat.alphaXA, mat.alphaXB) / (4 * dot(wo, wm)) * R;
+        float dwm_dwi = 1 / (4 * absDot(wo, wm));
+        wo = faceForward(wo, vec3(0, 0, 1));
+        wm = faceForward(wm, vec3(0, 0, 1));
+        pdf = util_Dwi(wo, wm, mat.alphaXA, mat.alphaYA) * dwm_dwi * R;
     }
     else
     {
         float denom = dot(wi, wm) + dot(wo, wm) / etap;
         float dwm_dwi = absDot(wi, wm) / (denom * denom);
-        wo *= util_sgn(wo.z);
-        wm *= util_sgn(wm.z);
-        pdf = util_Dwi(wo, wm, mat.alphaXA, mat.alphaXB) * dwm_dwi * T;
+        wo = faceForward(wo, vec3(0, 0, 1));
+        wm = faceForward(wm, vec3(0, 0, 1));
+        pdf = util_Dwi(wo, wm, mat.alphaXA, mat.alphaYA) * dwm_dwi * T;
     }
     //single scatter plus diffuse
-    return pdf + abs(wi.z);
+    return abs(pdf) + abs(wi.z);
 }
 
 BSDFSample AsymDielectricBSDF::Sample(vec3 wo, RandomEngine& rng, int order) const

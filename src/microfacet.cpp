@@ -188,12 +188,12 @@ vec3 util_dielectric_evalPhaseFunction(const vec3& wi, const vec3& wo, float alp
 {
 	const float eta = wi_outside ? m_eta : 1.0f / m_eta;
 
-	if (wi_outside == wo_outside) // reflection
+	if (dot(wi, wo) > 0) // reflection
 	{
 		// half vector 
 		const vec3 wh = normalize(wi + wo);
 		// value
-		const float value = (wi_outside) ?
+		const float value = (wi.z > 0) ?
 			(0.25f * util_Dwi(wi, wh, alpha_x, alpha_y) / dot(wi, wh) * util_fresnel(wi, wh, eta)) :
 			(0.25f * util_Dwi(-wi, -wh, alpha_x, alpha_y) / dot(-wi, -wh) * util_fresnel(-wi, -wh, eta));
 		return vec3(value, value, value);
@@ -201,13 +201,10 @@ vec3 util_dielectric_evalPhaseFunction(const vec3& wi, const vec3& wo, float alp
 	else // transmission
 	{
 		vec3 wh = -normalize(wi + wo * eta);
-		wh *= (wi_outside) ? (util_sgn(wh.z)) : (-util_sgn(wh.z));
-
-		if (dot(wh, wi) < 0)
-			return vec3(0, 0, 0);
+		wh = faceForward(wh, wi);
 
 		float value;
-		if (wi_outside) {
+		if (wi.z>0) {
 			value = eta * eta * (1.0f - util_fresnel(wi, wh, eta)) *
 				util_Dwi(wi, wh, alpha_x, alpha_y) * std::max(0.0f, -dot(wo, wh)) *
 				1.0f / powf(dot(wi, wh) + eta * dot(wo, wh), 2.0f);
@@ -230,7 +227,7 @@ vec3 util_dielectric_samplePhaseFunction(const vec3& wi, const vec3& random, vec
 	const float etaI = wi_outside ? 1.0f : m_eta;
 	const float etaT = wi_outside ? m_eta : 1.0f;
 
-	vec3 wm = wi.z > 0 ? util_sample_ggx_vndf(wi, vec2(random.x, random.y), alpha_x, alpha_y) : -util_sample_ggx_vndf(-wi, vec2(random.x, random.y), alpha_x, alpha_y);
+	vec3 wm = util_sample_ggx_vndf(wi, vec2(random.x, random.y), alpha_x, alpha_y);
 
 	const float F = util_fresnel(wi, wm, etaT / etaI);
 
