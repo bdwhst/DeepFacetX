@@ -1,5 +1,5 @@
 #pragma once
-
+#include <math.h>
 #include <ai.h>
 #include <ai_shader_bsdf.h>
 #include <ai_shaderglobals.h>
@@ -158,3 +158,9 @@ inline bool IsDeltaRay(int type)
 {
 	return (type & AI_RAY_SPECULAR_REFLECT) || (type & AI_RAY_SPECULAR_TRANSMIT);
 }
+
+//https://github.com/codeplea/incbeta
+#define STOP 1.0e-8
+#define TINY 1.0e-30
+
+double incbeta(double a, double b, double x);

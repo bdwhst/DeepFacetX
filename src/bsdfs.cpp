@@ -175,7 +175,155 @@ AtRGB AsymDielectricBSDF::F(vec3 wo, vec3 wi, RandomEngine& rng, int order) cons
     return AtRGB(result.x, result.y, result.z);
 }
 
-float AsymDielectricBSDF::PDF(vec3 wo, vec3 wi) const
+float AsymDielectricBSDF::MIS_weight(const vec3& wi, const vec3& wo, float eta, float alpha_x, float alpha_y) const
+{
+    if (wi.z * wo.z > 0)
+    {
+        vec3 wh = normalize(wi + wo);
+        return util_D(wh.z > 0 ? wh : -wh, alpha_x, alpha_y);
+    }
+    else
+    {
+        const vec3 wh = normalize(wi + wo * eta);
+        return util_D(wh.z > 0 ? wh : -wh, alpha_x, alpha_y);
+    }
+    //return Single_Scatter_PDF(wi, wo, alpha_x, alpha_y);
+}
+
+AtRGB AsymDielectricBSDF::F_eval_from_wo(vec3 wo, vec3 wi, RandomEngine& rng, int order) const
+{
+    const float eta = mat.ior;
+    float z = 0;
+    vec3 w = normalize(-wo);
+    int i = 0;
+    vec3 multiple_scatter = vec3(0.0f, 0.0f, 0.0f);
+    vec3 throughput = vec3(1.0f, 1.0f, 1.0f);
+    bool outside = wo.z > 0;
+    float zs = outside ? mat.zs : util_flip_z(mat.zs);
+    bool flipped = !outside;
+    if (!outside)
+    {
+        w = -w;
+    }
+    vec3 single_scattering = vec3(0, 0, 0);
+    float w_a = 1 - exp(mat.zs);
+    if (wo.z * wi.z > 0)//reflect
+    {
+        if (wo.z > 0)
+            single_scattering = util_asym_dielectric_single_scattering_F_reflect(wo, wi, mat.alphaXA, mat.alphaYA, mat.alphaXB, mat.alphaYB, w_a, eta);
+        else
+            single_scattering = util_asym_dielectric_single_scattering_F_reflect(-wo, -wi, mat.alphaXA, mat.alphaYA, mat.alphaXB, mat.alphaYB, w_a, eta);
+    }
+    else//refract
+    {
+        if (wo.z > 0)
+            single_scattering = util_asym_dielectric_single_scattering_F_refract(wo, wi, mat.alphaXA, mat.alphaYA, mat.alphaXB, mat.alphaYB, w_a, eta);
+        else
+            single_scattering = util_asym_dielectric_single_scattering_F_refract(-wo, -wi, mat.alphaXA, mat.alphaYA, mat.alphaXB, mat.alphaYB, w_a, eta);
+    }
+    float wo_misW;
+    while (i < order)
+    {
+        float U = Sample1D(rng);
+        float alphaXA = outside ? mat.alphaXA : mat.alphaXB;
+        float alphaYA = outside ? mat.alphaYA : mat.alphaYB;
+        float alphaXB = outside ? mat.alphaXB : mat.alphaXA;
+        float alphaYB = outside ? mat.alphaYB : mat.alphaYA;
+        float sigmaIn, sigmaOut, deltaZ;
+
+        sigmaIn = z > zs ? util_GGX_extinction_coeff(w, alphaXA, alphaYA) : util_GGX_extinction_coeff(w, alphaXB, alphaYB);
+        sigmaOut = z > zs ? util_GGX_extinction_coeff(w, alphaXB, alphaYB) : util_GGX_extinction_coeff(w, alphaXA, alphaYA);
+        deltaZ = w.z * (-log(U) / sigmaIn);
+
+        z += deltaZ;
+        if (z > 0) break;
+        if (i > 1)
+        {
+            //use unflipped w's negative as input to eval
+            vec3 wo_unflipped = flipped ? w : -w;
+            vec3 p = z > zs ? util_dielectric_evalPhaseFunction(wo_unflipped, wi, alphaXA, alphaYA, mat.albedo, outside, wi.z > 0, eta) : util_dielectric_evalPhaseFunction(wo_unflipped, wi, alphaXB, alphaYB, mat.albedo, outside, wi.z > 0, eta);
+            float tau_exit, lambdaA, lambdaB, z_t = z, zs_t = zs;
+            if (wi.z < 0)
+            {
+                lambdaA = util_GGX_lambda(-wi, alphaXA, alphaYA);
+                lambdaB = util_GGX_lambda(-wi, alphaXB, alphaYB);
+                if (!flipped)
+                {
+                    z_t = util_flip_z(z_t);
+                    zs_t = util_flip_z(zs_t);
+                }
+            }
+            else
+            {
+                lambdaA = util_GGX_lambda(wi, alphaXA, alphaYA);
+                lambdaB = util_GGX_lambda(wi, alphaXB, alphaYB);
+                if (flipped)
+                {
+                    z_t = util_flip_z(z_t);
+                    zs_t = util_flip_z(zs_t);
+                }
+            }
+            float alphaX = z > zs ? alphaXA : alphaXB;
+            float alphaY = z > zs ? alphaYA : alphaYB;
+            float wi_misW = MIS_weight(wo_unflipped, wi, eta, alphaX, alphaY);
+            tau_exit = max(z_t, zs_t) * lambdaA + min(z_t - zs_t, 0.0f) * lambdaB;
+            multiple_scatter += exp(tau_exit) * p * wo_misW / (wi_misW + wo_misW);
+        }
+
+        vec3 rand3 = Sample3D(rng);
+        bool n_outside = outside;
+        vec3 nw;
+        if (z > zs)
+        {
+            nw = util_dielectric_samplePhaseFunction(-w, rand3, throughput, alphaXA, alphaYA, mat.albedo, outside, n_outside, eta);
+        }
+        else
+        {
+            nw = util_dielectric_samplePhaseFunction(-w, rand3, throughput, alphaXB, alphaYB, mat.albedo, outside, n_outside, eta);
+        }
+        if ((z != z) || (nw.z != nw.z))
+            return AtRGB(0.0, 0.0, 0.0);
+
+        if (i == 0)
+        {
+            wo_misW = MIS_weight(wo, nw, eta, alphaXA, alphaYA);
+        }
+
+        w = nw;
+        if (n_outside != outside)
+        {
+            z = util_flip_z(z);
+            zs = util_flip_z(zs);
+            w = -nw;
+            outside = !outside;
+            flipped = !flipped;
+        }
+        i++;
+    }
+    if (z < 0) return AtRGB(0, 0, 0);
+    vec3 result = 0.5 * single_scattering + multiple_scatter;
+    return AtRGB(result.x, result.y, result.z);
+}
+
+AtRGB AsymDielectricBSDF::F_bidirectional(vec3 wo, vec3 wi, RandomEngine& rng, int order) const
+{
+    float u = Sample1D(rng);
+    float factor = 1.0f;
+    if (wo.z * wi.z < 0)
+    {
+        factor = wo.z > 0 ? 1.0 / mat.ior : mat.ior;
+    }
+    if (u > 0.5f)
+    {
+        return 2.0f * F_eval_from_wo(wo, wi, rng, order) * (factor * factor);
+    }
+    else
+    {
+        return 2.0f * F_eval_from_wo(wi, wo, rng, order) * abs(wi.z) / abs(wo.z);
+    }
+}
+
+float AsymDielectricBSDF::Single_Scatter_PDF(vec3 wo, vec3 wi, float alphaX, float alphaY) const
 {
     float cos_wo = wo.z, cos_wi = wi.z;
     bool reflect = cos_wo * cos_wi > 0;
@@ -194,7 +342,7 @@ float AsymDielectricBSDF::PDF(vec3 wo, vec3 wi) const
         float dwm_dwi = 1 / (4 * absDot(wo, wm));
         wo = faceForward(wo, vec3(0, 0, 1));
         wm = faceForward(wm, vec3(0, 0, 1));
-        pdf = util_Dwi(wo, wm, mat.alphaXA, mat.alphaYA) * dwm_dwi * R;
+        pdf = util_Dwi(wo, wm, alphaX, alphaY) * dwm_dwi * R;
     }
     else
     {
@@ -202,8 +350,14 @@ float AsymDielectricBSDF::PDF(vec3 wo, vec3 wi) const
         float dwm_dwi = absDot(wi, wm) / (denom * denom);
         wo = faceForward(wo, vec3(0, 0, 1));
         wm = faceForward(wm, vec3(0, 0, 1));
-        pdf = util_Dwi(wo, wm, mat.alphaXA, mat.alphaYA) * dwm_dwi * T;
+        pdf = util_Dwi(wo, wm, alphaX, alphaY) * dwm_dwi * T;
     }
+    return pdf;
+}
+
+float AsymDielectricBSDF::PDF(vec3 wo, vec3 wi) const
+{
+    float pdf = Single_Scatter_PDF(wo, wi, mat.alphaXA, mat.alphaYA);
     //single scatter plus diffuse
     return abs(pdf) + abs(wi.z);
 }

@@ -6,4 +6,5 @@ build/*
 plugin/Debug
 plugin/Release
 *.dll
+*.pdb
 

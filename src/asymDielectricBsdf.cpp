@@ -46,7 +46,8 @@ bsdf_eval
 	RandomEngine rng(state.seed ^ floatBitsToInt(wi.x));
 	vec3 wiLocal = toLocal(state.n, wi);
 
-	AtRGB f = fs->bsdf.F(state.wo, wiLocal, rng);
+	//AtRGB f = fs->bsdf.F(state.wo, wiLocal, rng);
+	AtRGB f = fs->bsdf.F_bidirectional(state.wo, wiLocal, rng);
 	float pdf = fs->bsdf.PDF(state.wo, wiLocal);
 
 	if (pdf < 1e-6f || isnan(pdf) || IsInvalid(f) || Luminance(f) > 1e8f)

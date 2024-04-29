@@ -131,6 +131,7 @@ struct AsymConductorBSDF
 struct AsymDielectricBSDF
 {
 	AtRGB F(vec3 wo, vec3 wi, RandomEngine& rng, int order = scattering_order) const;
+	AtRGB F_bidirectional(vec3 wo, vec3 wi, RandomEngine& rng, int order = scattering_order) const;
 	float PDF(vec3 wo, vec3 wi) const;
 	BSDFSample Sample(vec3 wo, RandomEngine& rng, int order = scattering_order) const;
 	bool IsDelta() const { return ApproxDelta(); }
@@ -141,6 +142,10 @@ struct AsymDielectricBSDF
 	asymMicrofacetInfo mat;
 	bool SchlickFresnel = false;
 	float deltaThreshold = 1e-4f;
+private:
+	float Single_Scatter_PDF(vec3 wo, vec3 wi, float alphaXA, float alphaYA) const;
+	float MIS_weight(const vec3& wi, const vec3& wo, float eta, float alpha_x, float alpha_y) const;
+	AtRGB F_eval_from_wo(vec3 wo, vec3 wi, RandomEngine& rng, int order) const;
 };
 
 
