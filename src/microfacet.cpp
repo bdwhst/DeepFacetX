@@ -38,7 +38,7 @@ float util_GGX_projectedArea(const vec3& wi, float alpha_x, float alpha_y)
 float util_GGX_P22(float slope_x, float slope_y, float alpha_x, float alpha_y)
 {
 	const float tmp = 1.0f + slope_x * slope_x / (alpha_x * alpha_x) + slope_y * slope_y / (alpha_y * alpha_y);
-	const float value = 1.0f / (PI * alpha_x * alpha_x) / (tmp * tmp);
+	const float value = 1.0f / (PI * alpha_x * alpha_y * tmp * tmp);
 	return value;
 }
 
@@ -117,9 +117,9 @@ vec3 util_sample_ggx_vndf(const vec3& wo, const vec2& rand, float alpha_x, float
 
 float util_GGX_lambda(const vec3& wi, float alpha_x, float alpha_y)
 {
-	if (wi.z > 0.9999f)
-		return 0.0f;
-	if (wi.z < -0.9999f)
+	if (wi.z > 0.99999999f)
+		return -0.0f;
+	if (wi.z < -0.99999999f)
 		return -1.0f;
 
 	// a
@@ -196,7 +196,7 @@ vec3 util_dielectric_evalPhaseFunction(const vec3& wi, const vec3& wo, float alp
 {
 	const float eta = wi_outside ? m_eta : 1.0f / m_eta;
 
-	if (dot(wi, wo) > 0) // reflection
+	if (wi.z * wo.z > 0) // reflection
 	{
 		// half vector 
 		const vec3 wh = normalize(wi + wo);

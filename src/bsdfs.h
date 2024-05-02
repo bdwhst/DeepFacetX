@@ -144,7 +144,7 @@ struct AsymDielectricBSDF
 	float deltaThreshold = 1e-4f;
 private:
 	float Single_Scatter_PDF(vec3 wo, vec3 wi, float alphaXA, float alphaYA) const;
-	float MIS_weight(const vec3& wi, const vec3& wo, float eta, float alpha_x, float alpha_y) const;
+	float MIS_weight(const vec3& wi, const vec3& wo, bool wi_inside, float eta, float alpha_x, float alpha_y) const;
 	AtRGB F_eval_from_wo(vec3 wo, vec3 wi, RandomEngine& rng, int order) const;
 };
 

@@ -15,6 +15,11 @@ AtRGB AsymConductorBSDF::F(vec3 wo, vec3 wi, RandomEngine& rng, int order) const
         float U = Sample1D(rng);
         float sigmaIn = z > mat.zs ? util_GGX_extinction_coeff(w, mat.alphaXA, mat.alphaYA) : util_GGX_extinction_coeff(w, mat.alphaXB, mat.alphaYB);
         float sigmaOut = z > mat.zs ? util_GGX_extinction_coeff(w, mat.alphaXB, mat.alphaYB) : util_GGX_extinction_coeff(w, mat.alphaXA, mat.alphaYA);
+        if (sigmaIn == 0.0f)
+        {
+            z = 0.0;
+            break;
+        }
         float deltaZ = w.z / length(w) * (-log(U) / sigmaIn);
         if (z < mat.zs != z + deltaZ < mat.zs)
         {
@@ -65,6 +70,11 @@ BSDFSample AsymConductorBSDF::Sample(vec3 wo, RandomEngine& rng, int order) cons
         float U = Sample1D(rng);
         float sigmaIn = z > mat.zs ? util_GGX_extinction_coeff(w, mat.alphaXA, mat.alphaYA) : util_GGX_extinction_coeff(w, mat.alphaXB, mat.alphaYB);
         float sigmaOut = z > mat.zs ? util_GGX_extinction_coeff(w, mat.alphaXB, mat.alphaYB) : util_GGX_extinction_coeff(w, mat.alphaXA, mat.alphaYA);
+        if (sigmaIn == 0.0f)
+        {
+            z = 0.0;
+            break;
+        }
         float deltaZ = w.z / length(w) * (-log(U) / sigmaIn);
         if (z < mat.zs != z + deltaZ < mat.zs)
         {
@@ -118,6 +128,11 @@ AtRGB AsymDielectricBSDF::F(vec3 wo, vec3 wi, RandomEngine& rng, int order) cons
 
         sigmaIn = z > zs ? util_GGX_extinction_coeff(w, alphaXA, alphaYA) : util_GGX_extinction_coeff(w, alphaXB, alphaYB);
         sigmaOut = z > zs ? util_GGX_extinction_coeff(w, alphaXB, alphaYB) : util_GGX_extinction_coeff(w, alphaXA, alphaYA);
+        if (sigmaIn == 0.0f)
+        {
+            z = 0.0;
+            break;
+        }
         deltaZ = w.z * (-log(U) / sigmaIn);
 
         z += deltaZ;
@@ -175,8 +190,10 @@ AtRGB AsymDielectricBSDF::F(vec3 wo, vec3 wi, RandomEngine& rng, int order) cons
     return AtRGB(result.x, result.y, result.z);
 }
 
-float AsymDielectricBSDF::MIS_weight(const vec3& wi, const vec3& wo, float eta, float alpha_x, float alpha_y) const
+float AsymDielectricBSDF::MIS_weight(const vec3& wi, const vec3& wo, bool wi_inside, float eta, float alpha_x, float alpha_y) const
 {
+    return Single_Scatter_PDF(wi, wo, alpha_x, alpha_y);
+    eta = wi_inside ? eta : 1.0 / eta;
     if (wi.z * wo.z > 0)
     {
         vec3 wh = normalize(wi + wo);
@@ -190,6 +207,8 @@ float AsymDielectricBSDF::MIS_weight(const vec3& wi, const vec3& wo, float eta, 
     //return Single_Scatter_PDF(wi, wo, alpha_x, alpha_y);
 }
 
+
+//Start random walk from wo, 
 AtRGB AsymDielectricBSDF::F_eval_from_wo(vec3 wo, vec3 wi, RandomEngine& rng, int order) const
 {
     const float eta = mat.ior;
@@ -221,6 +240,8 @@ AtRGB AsymDielectricBSDF::F_eval_from_wo(vec3 wo, vec3 wi, RandomEngine& rng, in
         else
             single_scattering = util_asym_dielectric_single_scattering_F_refract(-wo, -wi, mat.alphaXA, mat.alphaYA, mat.alphaXB, mat.alphaYB, w_a, eta);
     }
+    if (isInvalid(single_scattering))
+        return AtRGB(0.0, 0.0, 0.0);
     float wo_misW;
     while (i < order)
     {
@@ -233,6 +254,11 @@ AtRGB AsymDielectricBSDF::F_eval_from_wo(vec3 wo, vec3 wi, RandomEngine& rng, in
 
         sigmaIn = z > zs ? util_GGX_extinction_coeff(w, alphaXA, alphaYA) : util_GGX_extinction_coeff(w, alphaXB, alphaYB);
         sigmaOut = z > zs ? util_GGX_extinction_coeff(w, alphaXB, alphaYB) : util_GGX_extinction_coeff(w, alphaXA, alphaYA);
+        if (sigmaIn == 0.0f)
+        {
+            z = 0.0;
+            break;
+        }
         deltaZ = w.z * (-log(U) / sigmaIn);
 
         z += deltaZ;
@@ -265,9 +291,10 @@ AtRGB AsymDielectricBSDF::F_eval_from_wo(vec3 wo, vec3 wi, RandomEngine& rng, in
             }
             float alphaX = z > zs ? alphaXA : alphaXB;
             float alphaY = z > zs ? alphaYA : alphaYB;
-            float wi_misW = MIS_weight(wo_unflipped, wi, eta, alphaX, alphaY);
+            float wi_misW = MIS_weight(wo_unflipped, wi, outside, eta, alphaX, alphaY);
             tau_exit = max(z_t, zs_t) * lambdaA + min(z_t - zs_t, 0.0f) * lambdaB;
-            multiple_scatter += exp(tau_exit) * p * wo_misW / (wi_misW + wo_misW);
+            float denom = wi_misW + wo_misW;
+            multiple_scatter += exp(tau_exit) * p * wo_misW / denom;
         }
 
         vec3 rand3 = Sample3D(rng);
@@ -281,12 +308,12 @@ AtRGB AsymDielectricBSDF::F_eval_from_wo(vec3 wo, vec3 wi, RandomEngine& rng, in
         {
             nw = util_dielectric_samplePhaseFunction(-w, rand3, throughput, alphaXB, alphaYB, mat.albedo, outside, n_outside, eta);
         }
-        if ((z != z) || (nw.z != nw.z))
+        if ((z != z) || (nw.z != nw.z) || isInvalid(multiple_scatter))
             return AtRGB(0.0, 0.0, 0.0);
 
         if (i == 0)
         {
-            wo_misW = MIS_weight(wo, nw, eta, alphaXA, alphaYA);
+            wo_misW = MIS_weight(wo, nw, outside, eta, alphaXA, alphaYA);
         }
 
         w = nw;
@@ -389,6 +416,11 @@ BSDFSample AsymDielectricBSDF::Sample(vec3 wo, RandomEngine& rng, int order) con
 
         sigmaIn = z > zs ? util_GGX_extinction_coeff(w, alphaXA, alphaYA) : util_GGX_extinction_coeff(w, alphaXB, alphaYB);
         sigmaOut = z > zs ? util_GGX_extinction_coeff(w, alphaXB, alphaYB) : util_GGX_extinction_coeff(w, alphaXA, alphaYA);
+        if (sigmaIn == 0.0f)
+        {
+            z = 0.0;
+            break;
+        }
         deltaZ = w.z * (-log(U) / sigmaIn);
 
         if (z < zs != z + deltaZ < zs)
