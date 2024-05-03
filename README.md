@@ -1,4 +1,6 @@
 # DeepFacetX
+![](./img/DFX.jpg)
+
 Implementation of "Microfacet theory for non-uniform heightfields" in Autodesk Maya Arnold plugin.
 
 Before using it inside Arnold, make sure your diffuse ray depth in Arnold render setting is greater than 1, to get transmission material working.
