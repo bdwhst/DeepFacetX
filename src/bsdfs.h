@@ -107,7 +107,7 @@ struct asymMicrofacetInfo
 	float ior;
     float alphaXA, alphaYA;
     float alphaXB, alphaYB;
-    vec3 albedo;
+    vec3 albedoA, albedoB;
 };
 
 constexpr int scattering_order = 4;
@@ -141,6 +141,7 @@ struct AsymDielectricBSDF
 
 	asymMicrofacetInfo mat;
 	bool SchlickFresnel = false;
+	bool BDEval = true;
 	float deltaThreshold = 1e-4f;
 private:
 	float Single_Scatter_PDF(vec3 wo, vec3 wi, float alphaXA, float alphaYA) const;

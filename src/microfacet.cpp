@@ -262,13 +262,13 @@ float util_microfacet_shadowing_masking(const vec3& wi, const vec3& wo, float al
 vec3 util_microfacet_single_scattering_F(const vec3& wi, const vec3& wo, float alpha_x, float alpha_y, vec3 albedo)
 {
 	vec3 wm = normalize(wi + wo);
-	return util_D(wm, alpha_x, alpha_y) * util_fschlick(albedo, wi, wm) * util_microfacet_shadowing_masking(wi, wo, alpha_x, alpha_y) / (max(0.0f, wi.z) * max(0.0f, wo.z));
+	return util_D(wm, alpha_x, alpha_y) * util_fschlick(albedo, wi, wm) * util_microfacet_shadowing_masking(wi, wo, alpha_x, alpha_y) / (4.0 * max(0.0f, wi.z) * max(0.0f, wo.z));
 }
 
 vec3 util_microfacet_single_scattering_F(const vec3& wi, const vec3& wo, float alpha_x, float alpha_y, float eta)
 {
 	vec3 wm = normalize(wi + wo);
-	float result = util_D(wm, alpha_x, alpha_y) * util_fresnel(wi, wm, eta) * util_microfacet_shadowing_masking(wi, wo, alpha_x, alpha_y) / (max(0.0f, wi.z) * max(0.0f, wo.z));
+	float result = util_D(wm, alpha_x, alpha_y) * util_fresnel(wi, wm, eta) * util_microfacet_shadowing_masking(wi, wo, alpha_x, alpha_y) / (4.0 * max(0.0f, wi.z) * max(0.0f, wo.z));
 	return vec3(result, result, result);
 }
 

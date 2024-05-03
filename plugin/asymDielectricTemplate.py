@@ -16,7 +16,7 @@ class AEasymDielectricTemplate(ShaderAETemplate):
         self.addControl('alpha_x_b', label='Roughness Layer B (X)')
         self.addControl('alpha_y_b', label='Roughness Layer B (Y)')
         self.addControl('albedo', label='Albedo')
-
+        self.addControl('bd_eval', label='BD Eval')
 
         maya.mel.eval('AEdependNodeTemplate '+self.nodeName)
         self.addExtraControls()

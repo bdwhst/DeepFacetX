@@ -28,18 +28,18 @@ AtRGB AsymConductorBSDF::F(vec3 wo, vec3 wi, RandomEngine& rng, int order) const
         z += deltaZ;
         if (z > 0) break;
 
-        vec3 p = z > mat.zs ? util_conductor_evalPhaseFunction(-w, wi, mat.alphaXA, mat.alphaYA, mat.albedo) : util_conductor_evalPhaseFunction(-w, wi, mat.alphaXB, mat.alphaYB, mat.albedo);
+        vec3 p = z > mat.zs ? util_conductor_evalPhaseFunction(-w, wi, mat.alphaXA, mat.alphaYA, mat.albedoA) : util_conductor_evalPhaseFunction(-w, wi, mat.alphaXB, mat.alphaYB, mat.albedoB);
         float tau_exit = max(z, mat.zs) * util_GGX_lambda(wi, mat.alphaXA, mat.alphaYA) + min(z - mat.zs, 0.0f) * util_GGX_lambda(wi, mat.alphaXB, mat.alphaYB);
         result += throughput * exp(tau_exit) * p;
 
         vec3 rand3 = Sample3D(rng);
         if(z > mat.zs)
         {
-            w = util_conductor_samplePhaseFunction(-w, rand3, throughput, mat.alphaXA, mat.alphaYA, mat.albedo, (-w).z > 0, outside);
+            w = util_conductor_samplePhaseFunction(-w, rand3, throughput, mat.alphaXA, mat.alphaYA, mat.albedoA, (-w).z > 0, outside);
         }
         else
         {
-            w = util_conductor_samplePhaseFunction(-w, rand3, throughput, mat.alphaXB, mat.alphaYB, mat.albedo, (-w).z > 0, outside);
+            w = util_conductor_samplePhaseFunction(-w, rand3, throughput, mat.alphaXB, mat.alphaYB, mat.albedoB, (-w).z > 0, outside);
         }
 
 
@@ -85,11 +85,11 @@ BSDFSample AsymConductorBSDF::Sample(vec3 wo, RandomEngine& rng, int order) cons
         vec3 rand3 = Sample3D(rng);
         if (z > mat.zs)
         {
-            w = util_conductor_samplePhaseFunction(-w, rand3, throughput, mat.alphaXA, mat.alphaYA, mat.albedo, (-w).z > 0, outside);
+            w = util_conductor_samplePhaseFunction(-w, rand3, throughput, mat.alphaXA, mat.alphaYA, mat.albedoA, (-w).z > 0, outside);
         }
         else
         {
-            w = util_conductor_samplePhaseFunction(-w, rand3, throughput, mat.alphaXB, mat.alphaYB, mat.albedo, (-w).z > 0, outside);
+            w = util_conductor_samplePhaseFunction(-w, rand3, throughput, mat.alphaXB, mat.alphaYB, mat.albedoA, (-w).z > 0, outside);
         }
         if ((z != z) || (w.z != w.z))
         {
@@ -139,7 +139,7 @@ AtRGB AsymDielectricBSDF::F(vec3 wo, vec3 wi, RandomEngine& rng, int order) cons
         if (z > 0) break;
         //use unflipped w's negative as input to eval
         vec3 wo_unflipped = flipped ? w : -w;
-        vec3 p = z > zs ? util_dielectric_evalPhaseFunction(wo_unflipped, wi, alphaXA, alphaYA, mat.albedo, outside, wi.z > 0, eta) : util_dielectric_evalPhaseFunction(wo_unflipped, wi, alphaXB, alphaYB, mat.albedo, outside, wi.z > 0, eta);
+        vec3 p = z > zs ? util_dielectric_evalPhaseFunction(wo_unflipped, wi, alphaXA, alphaYA, mat.albedoA, outside, wi.z > 0, eta) : util_dielectric_evalPhaseFunction(wo_unflipped, wi, alphaXB, alphaYB, mat.albedoA, outside, wi.z > 0, eta);
         float tau_exit, lambdaA, lambdaB, z_t = z, zs_t = zs;
         if (wi.z<0)
         {
@@ -168,11 +168,11 @@ AtRGB AsymDielectricBSDF::F(vec3 wo, vec3 wi, RandomEngine& rng, int order) cons
         bool n_outside = outside;
         if (z > zs)
         {
-            w = util_dielectric_samplePhaseFunction(-w, rand3, throughput, alphaXA, alphaYA, mat.albedo, outside, n_outside, eta);
+            w = util_dielectric_samplePhaseFunction(-w, rand3, throughput, alphaXA, alphaYA, mat.albedoA, outside, n_outside, eta);
         }
         else
         {
-            w = util_dielectric_samplePhaseFunction(-w, rand3, throughput, alphaXB, alphaYB, mat.albedo, outside, n_outside, eta);
+            w = util_dielectric_samplePhaseFunction(-w, rand3, throughput, alphaXB, alphaYB, mat.albedoA, outside, n_outside, eta);
         }
         if ((z != z) || (w.z != w.z))
             return AtRGB(0.0, 0.0, 0.0);
@@ -186,7 +186,7 @@ AtRGB AsymDielectricBSDF::F(vec3 wo, vec3 wi, RandomEngine& rng, int order) cons
         }
         i++;
     }
-    if (z < 0) return AtRGB(0, 0, 0);
+    //if (z < 0) return AtRGB(0, 0, 0);
     return AtRGB(result.x, result.y, result.z);
 }
 
@@ -231,15 +231,16 @@ AtRGB AsymDielectricBSDF::F_eval_from_wo(vec3 wo, vec3 wi, RandomEngine& rng, in
         if (wo.z > 0)
             single_scattering = util_asym_dielectric_single_scattering_F_reflect(wo, wi, mat.alphaXA, mat.alphaYA, mat.alphaXB, mat.alphaYB, w_a, eta);
         else
-            single_scattering = util_asym_dielectric_single_scattering_F_reflect(-wo, -wi, mat.alphaXA, mat.alphaYA, mat.alphaXB, mat.alphaYB, w_a, eta);
+            single_scattering = util_asym_dielectric_single_scattering_F_reflect(-wo, -wi, mat.alphaXB, mat.alphaYB, mat.alphaXA, mat.alphaYA, 1 - w_a, 1 / eta);
     }
     else//refract
     {
         if (wo.z > 0)
             single_scattering = util_asym_dielectric_single_scattering_F_refract(wo, wi, mat.alphaXA, mat.alphaYA, mat.alphaXB, mat.alphaYB, w_a, eta);
         else
-            single_scattering = util_asym_dielectric_single_scattering_F_refract(-wo, -wi, mat.alphaXA, mat.alphaYA, mat.alphaXB, mat.alphaYB, w_a, eta);
+            single_scattering = util_asym_dielectric_single_scattering_F_refract(-wo, -wi, mat.alphaXB, mat.alphaYB, mat.alphaXA, mat.alphaYA, 1 - w_a, 1 / eta);
     }
+    single_scattering *= abs(wi.z);
     if (isInvalid(single_scattering))
         return AtRGB(0.0, 0.0, 0.0);
     float wo_misW;
@@ -267,7 +268,7 @@ AtRGB AsymDielectricBSDF::F_eval_from_wo(vec3 wo, vec3 wi, RandomEngine& rng, in
         {
             //use unflipped w's negative as input to eval
             vec3 wo_unflipped = flipped ? w : -w;
-            vec3 p = z > zs ? util_dielectric_evalPhaseFunction(wo_unflipped, wi, alphaXA, alphaYA, mat.albedo, outside, wi.z > 0, eta) : util_dielectric_evalPhaseFunction(wo_unflipped, wi, alphaXB, alphaYB, mat.albedo, outside, wi.z > 0, eta);
+            vec3 p = z > zs ? util_dielectric_evalPhaseFunction(wo_unflipped, wi, alphaXA, alphaYA, mat.albedoA, outside, wi.z > 0, eta) : util_dielectric_evalPhaseFunction(wo_unflipped, wi, alphaXB, alphaYB, mat.albedoA, outside, wi.z > 0, eta);
             float tau_exit, lambdaA, lambdaB, z_t = z, zs_t = zs;
             if (wi.z < 0)
             {
@@ -302,11 +303,11 @@ AtRGB AsymDielectricBSDF::F_eval_from_wo(vec3 wo, vec3 wi, RandomEngine& rng, in
         vec3 nw;
         if (z > zs)
         {
-            nw = util_dielectric_samplePhaseFunction(-w, rand3, throughput, alphaXA, alphaYA, mat.albedo, outside, n_outside, eta);
+            nw = util_dielectric_samplePhaseFunction(-w, rand3, throughput, alphaXA, alphaYA, mat.albedoA, outside, n_outside, eta);
         }
         else
         {
-            nw = util_dielectric_samplePhaseFunction(-w, rand3, throughput, alphaXB, alphaYB, mat.albedo, outside, n_outside, eta);
+            nw = util_dielectric_samplePhaseFunction(-w, rand3, throughput, alphaXB, alphaYB, mat.albedoA, outside, n_outside, eta);
         }
         if ((z != z) || (nw.z != nw.z) || isInvalid(multiple_scatter))
             return AtRGB(0.0, 0.0, 0.0);
@@ -327,7 +328,7 @@ AtRGB AsymDielectricBSDF::F_eval_from_wo(vec3 wo, vec3 wi, RandomEngine& rng, in
         }
         i++;
     }
-    if (z < 0) return AtRGB(0, 0, 0);
+    //if (z < 0) return AtRGB(0, 0, 0);
     vec3 result = 0.5 * single_scattering + multiple_scatter;
     return AtRGB(result.x, result.y, result.z);
 }
@@ -434,11 +435,11 @@ BSDFSample AsymDielectricBSDF::Sample(vec3 wo, RandomEngine& rng, int order) con
         bool n_outside = outside;
         if (z > zs)
         {
-            w = util_dielectric_samplePhaseFunction(-w, rand3, throughput, alphaXA, alphaYA, mat.albedo, outside, n_outside, eta);
+            w = util_dielectric_samplePhaseFunction(-w, rand3, throughput, alphaXA, alphaYA, mat.albedoA, outside, n_outside, eta);
         }
         else
         {
-            w = util_dielectric_samplePhaseFunction(-w, rand3, throughput, alphaXB, alphaYB, mat.albedo, outside, n_outside, eta);
+            w = util_dielectric_samplePhaseFunction(-w, rand3, throughput, alphaXB, alphaYB, mat.albedoA, outside, n_outside, eta);
         }
         if ((z != z) || (w.z != w.z))
             return BSDFSample(vec3(0, 0, 1), AtRGB(0.0, 0.0, 0.0), 1.0, AI_RAY_DIFFUSE_REFLECT);

@@ -10,7 +10,7 @@ enum ConductorNodeParams
 	p_zs = 1,
 	p_alpha_x_a, p_alpha_y_a,
     p_alpha_x_b, p_alpha_y_b,
-    p_albedo
+    p_albedoA, p_albedoB
 };
 
 
@@ -22,7 +22,8 @@ node_parameters
     AiParameterFlt("alpha_y_a", 0.8f);
     AiParameterFlt("alpha_x_b", 0.1f);
     AiParameterFlt("alpha_y_b", 0.1f);
-	AiParameterRGB("albedo", 0.8f, 0.7f, 0.2f);
+	AiParameterRGB("albedoA", 0.8f, 0.7f, 0.2f);
+	AiParameterRGB("albedoB", 0.8f, 0.7f, 0.2f);
 }
 
 node_initialize
@@ -44,8 +45,10 @@ shader_evaluate
 {
 	AsymConductorBSDF asymBSDF;
 	asymBSDF.mat.zs = AiShaderEvalParamFlt(p_zs);
-	AtRGB albedo = AiShaderEvalParamRGB(p_albedo);
-    asymBSDF.mat.albedo = vec3(albedo.r, albedo.g, albedo.b);
+	AtRGB albedo = AiShaderEvalParamRGB(p_albedoA);
+    asymBSDF.mat.albedoA = vec3(albedo.r, albedo.g, albedo.b);
+	albedo = AiShaderEvalParamRGB(p_albedoB);
+	asymBSDF.mat.albedoB = vec3(albedo.r, albedo.g, albedo.b);
     asymBSDF.mat.alphaXA = AiShaderEvalParamFlt(p_alpha_x_a);
     asymBSDF.mat.alphaYA = AiShaderEvalParamFlt(p_alpha_y_a);
 	asymBSDF.mat.alphaXB = AiShaderEvalParamFlt(p_alpha_x_b);
