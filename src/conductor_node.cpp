@@ -10,7 +10,8 @@ enum ConductorNodeParams
 	p_zs = 1,
 	p_alpha_x_a, p_alpha_y_a,
     p_alpha_x_b, p_alpha_y_b,
-    p_albedoA, p_albedoB
+    p_albedoA, p_albedoB,
+	p_bdeval
 };
 
 
@@ -24,6 +25,7 @@ node_parameters
     AiParameterFlt("alpha_y_b", 0.1f);
 	AiParameterRGB("albedoA", 0.8f, 0.7f, 0.2f);
 	AiParameterRGB("albedoB", 0.8f, 0.7f, 0.2f);
+	AiParameterBool("bd_eval", true);
 }
 
 node_initialize
@@ -53,7 +55,7 @@ shader_evaluate
     asymBSDF.mat.alphaYA = AiShaderEvalParamFlt(p_alpha_y_a);
 	asymBSDF.mat.alphaXB = AiShaderEvalParamFlt(p_alpha_x_b);
     asymBSDF.mat.alphaYB = AiShaderEvalParamFlt(p_alpha_y_b);
-	
+	asymBSDF.BDEval = AiShaderEvalParamBool(p_bdeval);
 
 	GetNodeLocalDataRef<BSDF>(node) = asymBSDF;
 

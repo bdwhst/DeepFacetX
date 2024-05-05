@@ -50,6 +50,86 @@ AtRGB AsymConductorBSDF::F(vec3 wo, vec3 wi, RandomEngine& rng, int order) const
     return AtRGB(result.x, result.y, result.z);
 }
 
+float AsymConductorBSDF::MIS_weight(const vec3& wi, const vec3& wo, float alpha_x, float alpha_y) const
+{
+    vec3 wh = normalize(wi + wo);
+    return util_D(wh.z > 0 ? wh : -wh, alpha_x, alpha_y);
+}
+
+AtRGB AsymConductorBSDF::F_eval_from_wo(vec3 wo, vec3 wi, RandomEngine& rng, int order) const
+{
+    float z = 0;
+    vec3 w = normalize(-wo);
+    vec3 single_scattering = vec3(0.0f, 0.0f, 0.0f);
+    vec3 multiple_scattering = vec3(0.0f, 0.0f, 0.0f);
+    vec3 throughput = vec3(1.0f, 1.0f, 1.0f);
+    int i = 0;
+    bool outside = true;
+    float w_a = 1 - exp(mat.zs);
+    single_scattering = util_asym_conductor_single_scattering_F(wo, wi, mat.alphaXA, mat.alphaYA, mat.alphaXB, mat.alphaYB, w_a, mat.albedoA, mat.albedoB);
+    single_scattering *= abs(wi.z);
+    float wo_misW = 1.0f;
+    while (i < order)
+    {
+        float U = Sample1D(rng);
+        float sigmaIn = z > mat.zs ? util_GGX_extinction_coeff(w, mat.alphaXA, mat.alphaYA) : util_GGX_extinction_coeff(w, mat.alphaXB, mat.alphaYB);
+        float sigmaOut = z > mat.zs ? util_GGX_extinction_coeff(w, mat.alphaXB, mat.alphaYB) : util_GGX_extinction_coeff(w, mat.alphaXA, mat.alphaYA);
+        if (sigmaIn == 0.0f)
+        {
+            z = 0.0;
+            break;
+        }
+        float deltaZ = w.z / length(w) * (-log(U) / sigmaIn);
+        if (z < mat.zs != z + deltaZ < mat.zs)
+        {
+            deltaZ = mat.zs - z + (deltaZ - (mat.zs - z) * sigmaIn / sigmaOut);
+        }
+        z += deltaZ;
+        if (z > 0) break;
+
+        if (i > 1)
+        {
+            vec3 p = z > mat.zs ? util_conductor_evalPhaseFunction(-w, wi, mat.alphaXA, mat.alphaYA, mat.albedoA) : util_conductor_evalPhaseFunction(-w, wi, mat.alphaXB, mat.alphaYB, mat.albedoB);
+            float tau_exit = max(z, mat.zs) * util_GGX_lambda(wi, mat.alphaXA, mat.alphaYA) + min(z - mat.zs, 0.0f) * util_GGX_lambda(wi, mat.alphaXB, mat.alphaYB);
+            float wi_misW = z > mat.zs ? MIS_weight(-w, wi, mat.alphaXA, mat.alphaYA) : MIS_weight(-w, wi, mat.alphaXB, mat.alphaYB);
+            multiple_scattering += throughput * exp(tau_exit) * p * wo_misW / (wo_misW + wi_misW);
+        }
+
+        vec3 rand3 = Sample3D(rng);
+        if (z > mat.zs)
+        {
+            w = util_conductor_samplePhaseFunction(-w, rand3, throughput, mat.alphaXA, mat.alphaYA, mat.albedoA, (-w).z > 0, outside);
+        }
+        else
+        {
+            w = util_conductor_samplePhaseFunction(-w, rand3, throughput, mat.alphaXB, mat.alphaYB, mat.albedoB, (-w).z > 0, outside);
+        }
+        if (i == 0)
+        {
+            wo_misW = z > mat.zs ? MIS_weight(wo, w, mat.alphaXA, mat.alphaYA) : MIS_weight(wo, w, mat.alphaXB, mat.alphaYB);
+        }
+
+        if ((z != z) || (w.z != w.z))
+            return AtRGB(0.0f);
+        i++;
+    }
+    vec3 result = 0.5 * single_scattering + multiple_scattering;
+    return AtRGB(result.x, result.y, result.z);
+}
+
+AtRGB AsymConductorBSDF::F_bidirectional(vec3 wo, vec3 wi, RandomEngine& rng, int order) const
+{
+    float u = Sample1D(rng);
+    if (u > 0.5f)
+    {
+        return 2.0f * F_eval_from_wo(wo, wi, rng, order);
+    }
+    else
+    {
+        return 2.0f * F_eval_from_wo(wi, wo, rng, order) * abs(wi.z) / abs(wo.z);
+    }
+}
+
 float AsymConductorBSDF::PDF(vec3 wo, vec3 wi) const
 {
     vec3 wh = normalize(wo + wi);
@@ -143,8 +223,8 @@ AtRGB AsymDielectricBSDF::F(vec3 wo, vec3 wi, RandomEngine& rng, int order) cons
         float tau_exit, lambdaA, lambdaB, z_t = z, zs_t = zs;
         if (wi.z<0)
         {
-            lambdaA = util_GGX_lambda(-wi, alphaXA, alphaYA);
-            lambdaB = util_GGX_lambda(-wi, alphaXB, alphaYB);
+            lambdaA = util_GGX_lambda(-wi, mat.alphaXB, mat.alphaYB);
+            lambdaB = util_GGX_lambda(-wi, mat.alphaXA, mat.alphaYA);
             if (!flipped)
             {
                 z_t = util_flip_z(z_t);
@@ -153,8 +233,8 @@ AtRGB AsymDielectricBSDF::F(vec3 wo, vec3 wi, RandomEngine& rng, int order) cons
         }
         else
         {
-            lambdaA = util_GGX_lambda(wi, alphaXA, alphaYA);
-            lambdaB = util_GGX_lambda(wi, alphaXB, alphaYB);
+            lambdaA = util_GGX_lambda(wi, mat.alphaXA, mat.alphaYA);
+            lambdaB = util_GGX_lambda(wi, mat.alphaXB, mat.alphaYB);
             if (flipped)
             {
                 z_t = util_flip_z(z_t);
@@ -186,8 +266,13 @@ AtRGB AsymDielectricBSDF::F(vec3 wo, vec3 wi, RandomEngine& rng, int order) cons
         }
         i++;
     }
+    float factor = 1.0f;
+    if (wo.z * wi.z < 0)
+    {
+        factor = wo.z > 0 ? 1 / mat.ior : mat.ior;
+    }
     //if (z < 0) return AtRGB(0, 0, 0);
-    return AtRGB(result.x, result.y, result.z);
+    return AtRGB(result.x, result.y, result.z) * factor * factor;
 }
 
 float AsymDielectricBSDF::MIS_weight(const vec3& wi, const vec3& wo, bool wi_inside, float eta, float alpha_x, float alpha_y) const
@@ -272,8 +357,8 @@ AtRGB AsymDielectricBSDF::F_eval_from_wo(vec3 wo, vec3 wi, RandomEngine& rng, in
             float tau_exit, lambdaA, lambdaB, z_t = z, zs_t = zs;
             if (wi.z < 0)
             {
-                lambdaA = util_GGX_lambda(-wi, alphaXA, alphaYA);
-                lambdaB = util_GGX_lambda(-wi, alphaXB, alphaYB);
+                lambdaA = util_GGX_lambda(-wi, mat.alphaXB, mat.alphaYB);
+                lambdaB = util_GGX_lambda(-wi, mat.alphaXA, mat.alphaYA);
                 if (!flipped)
                 {
                     z_t = util_flip_z(z_t);
@@ -282,8 +367,8 @@ AtRGB AsymDielectricBSDF::F_eval_from_wo(vec3 wo, vec3 wi, RandomEngine& rng, in
             }
             else
             {
-                lambdaA = util_GGX_lambda(wi, alphaXA, alphaYA);
-                lambdaB = util_GGX_lambda(wi, alphaXB, alphaYB);
+                lambdaA = util_GGX_lambda(wi, mat.alphaXA, mat.alphaYA);
+                lambdaB = util_GGX_lambda(wi, mat.alphaXB, mat.alphaYB);
                 if (flipped)
                 {
                     z_t = util_flip_z(z_t);
@@ -455,5 +540,10 @@ BSDFSample AsymDielectricBSDF::Sample(vec3 wo, RandomEngine& rng, int order) con
     }
     if (z < 0) BSDFSample(vec3(0, 0, 1), AtRGB(0, 0, 0), 1.0, AI_RAY_DIFFUSE_REFLECT);
     w = flipped ? -w : w;
-    return BSDFSample(w, AtRGB(throughput.x, throughput.y, throughput.z), 1.0, AI_RAY_DIFFUSE_REFLECT);
+    float factor = 1.0f;
+    if (w.z * wo.z < 0)
+    {
+        factor = wo.z > 0 ? 1 / mat.ior : mat.ior;
+    }
+    return BSDFSample(w, AtRGB(throughput.x, throughput.y, throughput.z) * factor * factor, 1.0, AI_RAY_DIFFUSE_REFLECT);
 }

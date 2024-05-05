@@ -16,6 +16,7 @@ class AEasymConductorTemplate(ShaderAETemplate):
         self.addControl('alpha_y_b', label='Roughness Layer B (Y)')
         self.addControl('albedoA', label='AlbedoA')
         self.addControl('albedoB', label='AlbedoB')
+        self.addControl('bd_eval', label='BDEval')
 
         maya.mel.eval('AEdependNodeTemplate '+self.nodeName)
         self.addExtraControls()

@@ -55,6 +55,11 @@
 		maya.name			STRING	"albedoB"
 		maya.shortname		STRING	"aB"
 
+	[attr bd_eval]
+		desc				STRING	"Use Bidirectional Eval"
+		maya.name			STRING	"bd_eval"
+		maya.shortname		STRING	"bd"
+
 
 [node AsymMicrofacetDielectricNode]
 	maya.name				STRING	"asymDielectric"

@@ -15,6 +15,6 @@ float util_sgn(float x);
 float util_fresnel(const vec3& wi, const vec3& wm, const float eta);
 float util_flip_z(float x);
 
-
+vec3 util_asym_conductor_single_scattering_F(const vec3& wi, const vec3& wo, float alpha_x_a, float alpha_y_a, float alpha_x_b, float alpha_y_b, float w_a, vec3 albedo_a, vec3 albedo_b);
 vec3 util_asym_dielectric_single_scattering_F_reflect(const vec3& wi, const vec3& wo, float alpha_x_a, float alpha_y_a, float alpha_x_b, float alpha_y_b, float w_a, float eta);
 vec3 util_asym_dielectric_single_scattering_F_refract(const vec3& wi, const vec3& wo, float alpha_x_a, float alpha_y_a, float alpha_x_b, float alpha_y_b, float w_a, float eta);

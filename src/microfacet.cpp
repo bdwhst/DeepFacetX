@@ -231,7 +231,7 @@ vec3 util_dielectric_samplePhaseFunction(const vec3& wi, const vec3& random, vec
 	const float etaI = wi_outside ? 1.0f : m_eta;
 	const float etaT = wi_outside ? m_eta : 1.0f;
 
-	vec3 wm = util_sample_ggx_vndf(wi, vec2(random.x, random.y), alpha_x, alpha_y);
+	vec3 wm = wi.z > 0 ? util_sample_ggx_vndf(wi, vec2(random.x, random.y), alpha_x, alpha_y) : -util_sample_ggx_vndf(-wi, vec2(random.x, random.y), alpha_x, alpha_y);
 
 	const float F = util_fresnel(wi, wm, etaT / etaI);
 
@@ -274,11 +274,11 @@ vec3 util_microfacet_single_scattering_F(const vec3& wi, const vec3& wo, float a
 
 
 //wi.z>0
-vec3 util_asym_conductor_single_scattering_F(const vec3& wi, const vec3& wo, float alpha_x_a, float alpha_y_a, float alpha_x_b, float alpha_y_b, float w_a, vec3 albedo)
+vec3 util_asym_conductor_single_scattering_F(const vec3& wi, const vec3& wo, float alpha_x_a, float alpha_y_a, float alpha_x_b, float alpha_y_b, float w_a, vec3 albedo_a, vec3 albedo_b)
 {
 	float w_b = 1 - w_a;
 	float E_wi_wo = powf(w_b, 1 / util_microfacet_shadowing_masking(wi, wo, alpha_x_a, alpha_y_a));
-	return (1 - E_wi_wo) * util_microfacet_single_scattering_F(wi, wo, alpha_x_a, alpha_y_a, albedo) + E_wi_wo * util_microfacet_single_scattering_F(wi, wo, alpha_x_b, alpha_y_b, albedo);
+	return (1 - E_wi_wo) * util_microfacet_single_scattering_F(wi, wo, alpha_x_a, alpha_y_a, albedo_a) + E_wi_wo * util_microfacet_single_scattering_F(wi, wo, alpha_x_b, alpha_y_b, albedo_b);
 }
 
 //wi.z>0
