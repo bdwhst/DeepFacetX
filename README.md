@@ -81,9 +81,9 @@ function EvalAsymetricMicrofacet(wi, wo, zs, max_scattering_order):
 
 
 
-|  Unidirectional eval  |  Bidirectional eval  |
-| :-------------------: | :------------------: |
-| ![](./img/unidir.png) | ![](./img/bidir.png) |
+|                Unidirectional eval                |                Bidirectional eval                |
+| :-----------------------------------------------: | :----------------------------------------------: |
+| <img src="./img/unidir.png" style="zoom:150%;" /> | <img src="./img/bidir.png" style="zoom:150%;" /> |
 
 As we can see from the result, bidirectional eval can greatly reduce fireflies due to randomness.
 
